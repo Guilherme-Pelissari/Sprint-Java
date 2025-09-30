@@ -46,6 +46,7 @@ public class SecurityConfig {
 	      .authorizeHttpRequests(auth -> auth
 	        // recursos públicos
 		  .requestMatchers("/css/**","/js/**","/images/**","/login","/error","/acesso-negado").permitAll()
+		  .requestMatchers(HttpMethod.POST, "/api/movimentacoes").permitAll()
 
 
 	        // leitura (GET) liberada para USER e ADMIN (authenticados)
@@ -69,7 +70,7 @@ public class SecurityConfig {
 	        .permitAll()
 	      )
 	    .headers(h -> h.frameOptions(o -> o.disable()))
-	    .csrf(csrf -> csrf.ignoringRequestMatchers("/h2-console/**"))
+	    .csrf(csrf -> csrf.ignoringRequestMatchers("/h2-console/**", "/api/movimentacoes"))
 	    .exceptionHandling(e -> e.accessDeniedHandler((req,res,ex) ->
 	      res.sendRedirect(req.getContextPath() + "/acesso-negado")
 	  ));
