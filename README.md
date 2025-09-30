@@ -22,7 +22,7 @@
 Clone o projeto para sua máquina local:
 
 ```bash
-git clone https://github.com/LuigiBerzaghi/Sprint1Java.git
+git clone https://github.com/Guilherme-Pelissari/Sprint-Java.git
 cd Sprint1Java/trackyard
 ```
 
