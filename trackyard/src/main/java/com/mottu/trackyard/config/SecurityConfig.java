@@ -5,6 +5,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer; // Importação adicionada
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -17,66 +18,82 @@ import org.springframework.security.web.SecurityFilterChain;
 @EnableWebSecurity
 public class SecurityConfig {
 
-	  // 1) Usuários em memória (admin/user) com senhas BCRYPT
-	  @Bean
-	  public UserDetailsService users(PasswordEncoder enc) {
-	    UserDetails admin = User.withUsername("admin")
-	        .password(enc.encode("admin123"))
-	        .authorities("ADMIN") // rótulo simples
-	        .build();
+	// 1) Usuários em memória (admin/user) com senhas BCRYPT
+	@Bean
+	public UserDetailsService users(PasswordEncoder enc) {
+		UserDetails admin = User.withUsername("admin")
+				.password(enc.encode("admin123"))
+				.authorities("ADMIN")
+				.build();
 
-	    UserDetails user = User.withUsername("user")
-	        .password(enc.encode("user123"))
-	        .authorities("USER")
-	        .build();
+		UserDetails user = User.withUsername("user")
+				.password(enc.encode("user123"))
+				.authorities("USER")
+				.build();
 
-	    return new InMemoryUserDetailsManager(admin, user);
-	  }
+		return new InMemoryUserDetailsManager(admin, user);
+	}
 
-	  // 2) Encoder
-	  @Bean
-	  public PasswordEncoder passwordEncoder() {
-	    return new BCryptPasswordEncoder();
-	  }
-
-	  // 3) Regras de autorização + formulário de login
-	  @Bean
-	  public SecurityFilterChain filter(HttpSecurity http) throws Exception {
-	    http
-	      .authorizeHttpRequests(auth -> auth
-	        // recursos públicos
-		  .requestMatchers("/css/**","/js/**","/images/**","/login","/error","/acesso-negado").permitAll()
-		  .requestMatchers(HttpMethod.POST, "/api/movimentacoes").permitAll()
-
-
-	        // leitura (GET) liberada para USER e ADMIN (authenticados)
-	        .requestMatchers(HttpMethod.GET, "/**").hasAnyAuthority("USER","ADMIN")
-
-	        // escrita (POST/PUT/DELETE) só ADMIN
-	        .requestMatchers(HttpMethod.POST, "/**").hasAuthority("ADMIN")
-	        .requestMatchers(HttpMethod.PUT, "/**").hasAuthority("ADMIN")
-	        .requestMatchers(HttpMethod.DELETE, "/**").hasAuthority("ADMIN")
-
-	        // qualquer outra rota exige login
-	        .anyRequest().authenticated()
-	      )
-	      .formLogin(form -> form
-	        .loginPage("/login")               
-	        .defaultSuccessUrl("/motos", true)      
-	        .permitAll()
-	      )
-	      .logout(l -> l.logoutUrl("/logout")
-	        .logoutSuccessUrl("/login?logout")
-	        .permitAll()
-	      )
-	    .headers(h -> h.frameOptions(o -> o.disable()))
-	    .csrf(csrf -> csrf.ignoringRequestMatchers("/h2-console/**", "/api/movimentacoes"))
-	    .exceptionHandling(e -> e.accessDeniedHandler((req,res,ex) ->
-	      res.sendRedirect(req.getContextPath() + "/acesso-negado")
-	  ));
+	// 2) Encoder
+	@Bean
+	public PasswordEncoder passwordEncoder() {
+		return new BCryptPasswordEncoder();
+	}
+    
+    // =================================================================
+    // MUDANÇA ESSENCIAL 1: Ignorar totalmente a rota da API do QR Code
+    // Isso garante que o Spring Security não tente aplicar regras de sessão/autorização
+    // ou redirecionar o cliente (script Python).
+    // =================================================================
+    @Bean
+    public WebSecurityCustomizer webSecurityCustomizer() {
+        return (web) -> web.ignoring().requestMatchers(HttpMethod.POST, "/api/movimentacoes");
+    }
 
 
-	    return http.build();
-	  }
-	
+	// 3) Regras de autorização + formulário de login
+	@Bean
+	public SecurityFilterChain filter(HttpSecurity http) throws Exception {
+		http
+			.authorizeHttpRequests(auth -> auth
+				// recursos públicos
+				.requestMatchers("/css/**","/js/**","/images/**","/login","/error","/acesso-negado").permitAll()
+                // .requestMatchers(HttpMethod.POST, "/api/movimentacoes").permitAll() // Removido, pois está sendo ignorado acima
+
+
+				// leitura (GET) liberada para USER e ADMIN (authenticados)
+				.requestMatchers(HttpMethod.GET, "/**").hasAnyAuthority("USER","ADMIN")
+
+				// escrita (POST) liberada para USER e ADMIN (se for para a web)
+                // MUDANÇA ESSENCIAL 2: USER agora pode fazer POST (excluindo a rota de API liberada)
+				.requestMatchers(HttpMethod.POST, "/**").hasAnyAuthority("ADMIN", "USER")
+
+                // escrita (PUT/DELETE) só ADMIN
+				.requestMatchers(HttpMethod.PUT, "/**").hasAuthority("ADMIN")
+				.requestMatchers(HttpMethod.DELETE, "/**").hasAuthority("ADMIN")
+
+				// qualquer outra rota exige login
+				.anyRequest().authenticated()
+			)
+			.formLogin(form -> form
+				.loginPage("/login")
+				.defaultSuccessUrl("/motos", true)
+				.permitAll()
+			)
+			.logout(l -> l.logoutUrl("/logout")
+				.logoutSuccessUrl("/login?logout")
+				.permitAll()
+			)
+			.headers(h -> h.frameOptions(o -> o.disable()))
+            // A rota /api/movimentacoes não precisa mais ser ignorada pelo CSRF, mas mantemos
+            // para o h2-console.
+			.csrf(csrf -> csrf.ignoringRequestMatchers("/h2-console/**"))
+			.exceptionHandling(e -> e.accessDeniedHandler((req,res,ex) ->
+				res.sendRedirect(req.getContextPath() + "/acesso-negado")
+			));
+
+
+		return http.build();
+	}
+
 }
