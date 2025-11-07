@@ -21,6 +21,7 @@
 - **Java 17** ou superior.
 - **Maven**.
 - Uma IDE.
+- roda a API python no repositóro: https://github.com/Guilherme-Pelissari/Sprint2-IOT-IA
 
 ## Configuração e Execução
 
