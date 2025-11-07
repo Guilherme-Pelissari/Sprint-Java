@@ -69,6 +69,15 @@ O projeto usa o banco de dados H2 em memória. Acesse em:
 - `com.mottu.trackyard.dto`: Contém os DTOs para transferência de dados.
 - `com.mottu.trackyard.exception`: Contém a classe que centraliza o tratamento de exceções.
 
+## Dashboard 
+
+Esta seção descreve as páginas servidas pela aplicação, que interagem com a API Python.
+
+| Método | Endpoint | Descrição |
+|---|---|---|
+| `GET` | `/dashboard/gerar` | Exibe a página "Gerar QR Code". Esta página usa JavaScript para chamar o endpoint `/gerar_qrcode` da API Python. |
+| `GET` | `/dashboard/ler` | Exibe a página "Ler QR Code". Esta página usa JavaScript para chamar os endpoints `/start`, `/stop` e `/upload_image_and_decode` da API Python. |
+
 ## Endpoints da API
 
 ### Pátios (`/api/patios`)
