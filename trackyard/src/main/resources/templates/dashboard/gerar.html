@@ -11,18 +11,22 @@
   <div class="card mb-3">
     <div class="card-body">
       <form id="formGerar" onsubmit="return false;">
+        
         <div class="mb-2">
-          <label class="form-label">idMovimentacao</label>
-          <input class="form-control" type="number" name="idMovimentacao" id="idMovimentacao" />
+          <label class="form-label">ID da Moto</label>
+          <input class="form-control" type="text" name="idMoto" id="idMoto" required />
         </div>
+        
         <div class="mb-2">
-          <label class="form-label">idMoto</label>
-          <input class="form-control" type="text" name="idMoto" id="idMoto" />
+          <label class="form-label">Placa</label>
+          <input class="form-control" type="text" name="placa" id="placa" required />
         </div>
+        
         <div class="mb-2">
-          <label class="form-label">idPonto</label>
-          <input class="form-control" type="number" name="idPonto" id="idPonto" />
+          <label class="form-label">Modelo</label>
+          <input class="form-control" type="text" name="modelo" id="modelo" required />
         </div>
+        
         <button class="btn btn-primary" onclick="gerar()">Gerar QR Code</button>
       </form>
     </div>
@@ -37,25 +41,25 @@
 
   <script>
     async function gerar() {
-      console.log("Iniciando geração de QR..."); // Para depurar no console (F12)
+      console.log("Iniciando geração de QR..."); 
 
       try {
-        const fd = new FormData();
-        const idMov = document.getElementById('idMovimentacao').value || '';
-        const idMot = document.getElementById('idMoto').value || '';
-        const idPon = document.getElementById('idPonto').value || '';
+        const idMot = document.getElementById('idMoto').value;
+        const placaVal = document.getElementById('placa').value;
+        const modeloVal = document.getElementById('modelo').value;
 
         // 1. Validação dos campos obrigatórios
-        if (!idMot || !idPon) {
-            alert('Os campos "idMoto" e "idPonto" são obrigatórios!');
-            return;
+        if (!idMot || !placaVal || !modeloVal) {
+            alert('Todos os campos (idMoto, Placa, Modelo) são obrigatórios!');
+            return; 
         }
 
-        fd.append('idMovimentacao', idMov);
+        const fd = new FormData();
         fd.append('idMoto', idMot);
-        fd.append('idPonto', idPon);
+        fd.append('placa', placaVal);
+        fd.append('modelo', modeloVal);
 
-        console.log("Enviando dados para a API Python:", {idMov, idMot, idPon});
+        console.log("Enviando dados para a API Python:", {idMot, placaVal, modeloVal});
 
         const res = await fetch('http://localhost:8000/gerar_qrcode', {
           method: 'POST',
@@ -76,8 +80,6 @@
         img.style.display = 'block';
 
       } catch (error) {
-        // --- ESTE É O BLOCO MAIS IMPORTANTE ---
-        // Se houver um erro de rede ou CORS, ele será capturado aqui.
         console.error("Falha grave no fetch:", error);
         alert("ERRO DE REDE: Não foi possível conectar à API Python. Verifique o console (F12). Erro: " + error.message);
       }

@@ -6,19 +6,8 @@
 <div th:fragment="content">
   <div class="d-flex justify-content-between align-items-center mb-3">
     <h1 class="h3">Ler QR Code</h1>
-    <div>
-      <button class="btn btn-success me-2" id="btnStart" onclick="startReader()">Iniciar Leitura</button>
-      <button class="btn btn-danger me-2" id="btnStop" onclick="stopReader()">Parar Leitura</button>
-      <button class="btn btn-secondary" onclick="status()">Status</button>
     </div>
-  </div>
-
-  <div class="card mb-3">
-    <div class="card-body">
-      <strong>Status:</strong> <span id="statusText">-</span>
-    </div>
-  </div>
-
+  
   <div class="card mb-3">
     <div class="card-body">
       <h5 class="card-title">Último QR lido</h5>
@@ -28,11 +17,22 @@
 
   <div class="card mb-3">
     <div class="card-body">
-      <h5 class="card-title">Upload / Webcam (se Python estiver remoto)</h5>
+      <h5 class="card-title">Upload / Webcam</h5>
 
+      <div class="mb-3">
+          <label for="selectPonto" class="form-label"><b>1. Selecione o Ponto de Leitura:</b></label>
+          <select class="form-select" id="selectPonto">
+              <option value="">-- Selecione um ponto --</option>
+              <option th:each="ponto : ${listaDePontos}" 
+                      th:value="${ponto.idPonto()}" 
+                      th:text="${ponto.nomePonto()} + ' (ID: ' + ${ponto.idPonto()} + ')'">
+                  Ponto de Teste
+              </option>
+          </select>
+      </div>
       <div class="row">
         <div class="col-md-6">
-          <p>Use a câmera do navegador para capturar e enviar a imagem para a API Python:</p>
+          <p><b>2. Use a câmera do navegador:</b></p>
           <video id="videoPreview" autoplay playsinline style="display:none; width:100%; border-radius:6px;"></video>
           <canvas id="captureCanvas" style="display:none;"></canvas>
 
@@ -44,7 +44,7 @@
         </div>
 
         <div class="col-md-6">
-          <p>Ou envie um arquivo:</p>
+          <p><b>2. Ou envie um arquivo:</b></p>
           <input class="form-control" type="file" id="fileInput" accept="image/*" />
           <div class="mt-2">
             <button class="btn btn-outline-success" onclick="uploadImage()">Enviar</button>
@@ -66,8 +66,8 @@
     </div>
   </div>
 
-  <script>
-    const PY_API_BASE = 'http://localhost:8000'; // ajuste se necessário
+<script>
+    const PY_API_BASE = 'http://localhost:8000';
     let lastQr = null;
     let videoStream = null;
 
@@ -76,42 +76,8 @@
       const time = new Date().toLocaleTimeString();
       logs.innerText = `[${time}] ${msg}\n` + logs.innerText;
     }
-
-    async function startReader() {
-      try {
-        const res = await fetch(`${PY_API_BASE}/start`);
-        const json = await res.json();
-        document.getElementById('statusText').innerText = JSON.stringify(json);
-        log('start -> ' + JSON.stringify(json));
-      } catch (e) {
-        alert('Erro ao iniciar leitor: ' + e);
-        log('Erro start: ' + e);
-      }
-    }
-
-    async function stopReader() {
-      try {
-        const res = await fetch(`${PY_API_BASE}/stop`);
-        const json = await res.json();
-        document.getElementById('statusText').innerText = JSON.stringify(json);
-        log('stop -> ' + JSON.stringify(json));
-      } catch (e) {
-        alert('Erro ao parar leitor: ' + e);
-        log('Erro stop: ' + e);
-      }
-    }
-
-    async function status() {
-      try {
-        const res = await fetch(`${PY_API_BASE}/status`);
-        const json = await res.json();
-        document.getElementById('statusText').innerText = JSON.stringify(json);
-        log('status -> ' + JSON.stringify(json));
-      } catch (e) {
-        alert('Erro ao consultar status: ' + e);
-        log('Erro status: ' + e);
-      }
-    }
+    
+    // Funções start/stop/status removidas (não são mais usadas)
 
     function refreshLast() {
       if (lastQr) {
@@ -121,35 +87,65 @@
       }
     }
 
+    // Função interna para validar e enviar o formulário
+    async function sendImageToAPI(formData) {
+        try {
+            const res = await fetch(`${PY_API_BASE}/upload_image_and_decode`, { method: 'POST', body: formData });
+            
+            if (!res.ok) {
+                const errorText = await res.text();
+                alert('Erro ao enviar (API retornou ' + res.status + '): ' + errorText);
+                log('Erro upload: ' + res.status + ' ' + errorText);
+                return;
+            }
+
+            const json = await res.json();
+            document.getElementById('uploadResult').innerText = JSON.stringify(json, null, 2);
+            log('upload -> ' + JSON.stringify(json));
+            
+            if (json.found && json.sent_to_backend) {
+              // json.data contém o payload original do QR
+              // json.payload_sent contém o que foi enviado ao Java
+              lastQr = json.payload_sent; 
+              document.getElementById('lastData').innerText = JSON.stringify(lastQr, null, 2);
+              log('Sucesso! Movimentação registrada no Java.');
+            } else if (json.found) {
+              log('QR encontrado, mas falhou ao enviar ao backend Java.');
+            }
+
+        } catch (e) {
+            alert('Erro de rede ao enviar imagem: ' + e);
+            log('Erro upload (rede): ' + e);
+        }
+    }
+
+    // Validação principal
+    function getSelectedPonto() {
+        const idPonto = document.getElementById('selectPonto').value;
+        if (!idPonto) {
+            alert('Erro: Por favor, selecione um Ponto de Leitura primeiro.');
+            return null;
+        }
+        return idPonto;
+    }
+
     async function uploadImage() {
+      const idPonto = getSelectedPonto();
+      if (!idPonto) return; // Para se o ponto não foi selecionado
+
       const input = document.getElementById('fileInput');
       if (!input.files.length) { alert('Selecione uma imagem'); return; }
+      
       const fd = new FormData();
       fd.append('file', input.files[0]);
-      try {
-        const res = await fetch(`${PY_API_BASE}/upload_image_and_decode`, { method: 'POST', body: fd });
-        
-        // Adicionando captura de erro 500 (como fizemos no Gerar)
-        if (!res.ok) {
-            alert('Erro ao enviar imagem (API retornou status ' + res.status + ')');
-            log('Erro upload: ' + res.status);
-            return;
-        }
+      fd.append('idPonto', idPonto); // <-- ADICIONADO O ID DO PONTO
 
-        const json = await res.json();
-        document.getElementById('uploadResult').innerText = JSON.stringify(json, null, 2);
-        log('upload -> ' + JSON.stringify(json));
-        if (json.found) {
-          lastQr = json.data;
-          document.getElementById('lastData').innerText = JSON.stringify(lastQr, null, 2);
-        }
-      } catch (e) {
-        alert('Erro de rede ao enviar imagem: ' + e);
-        log('Erro upload (rede): ' + e);
-      }
+      log(`Enviando arquivo com idPonto: ${idPonto}`);
+      await sendImageToAPI(fd);
     }
 
     async function openCamera() {
+      // ... (esta função não muda) ...
       try {
         videoStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
         const video = document.getElementById('videoPreview');
@@ -166,6 +162,7 @@
     }
 
     function closeCamera() {
+      // ... (esta função não muda) ...
       if (videoStream) {
         videoStream.getTracks().forEach(t => t.stop());
         videoStream = null;
@@ -179,7 +176,11 @@
     }
 
     async function takePhoto() {
+      const idPonto = getSelectedPonto();
+      if (!idPonto) return; // Para se o ponto não foi selecionado
+
       if (!videoStream) return alert('Abra a câmera primeiro');
+      
       const video = document.getElementById('videoPreview');
       const canvas = document.getElementById('captureCanvas');
       canvas.width = video.videoWidth;
@@ -190,31 +191,16 @@
       canvas.toBlob(async (blob) => {
         const fd = new FormData();
         fd.append('file', blob, 'capture.png');
-        try {
-          const res = await fetch(`${PY_API_BASE}/upload_image_and_decode`, { method: 'POST', body: fd });
+        fd.append('idPonto', idPonto); // <-- ADICIONADO O ID DO PONTO
+        
+        log(`Enviando captura com idPonto: ${idPonto}`);
+        await sendImageToAPI(fd);
 
-          // Adicionando captura de erro 500
-          if (!res.ok) {
-              alert('Erro ao enviar captura (API retornou status ' + res.status + ')');
-              log('Erro capture: ' + res.status);
-              return;
-          }
-
-          const json = await res.json();
-          document.getElementById('uploadResult').innerText = JSON.stringify(json, null, 2);
-          log('capture -> ' + JSON.stringify(json));
-          if (json.found) {
-            lastQr = json.data;
-            document.getElementById('lastData').innerText = JSON.stringify(lastQr, null, 2);
-          }
-        } catch (e) {
-          alert('Erro de rede ao enviar captura: ' + e);
-          log('Erro capture/upload (rede): ' + e);
-        }
       }, 'image/png');
     }
 
     window.addEventListener('beforeunload', () => {
+      // ... (esta função não muda) ...
       if (videoStream) {
         videoStream.getTracks().forEach(t => t.stop());
       }
