@@ -2,6 +2,13 @@
 
 **TrackYard** é uma aplicação Java desenvolvida com o objetivo de gerenciar a organização das motos da Mottu dentro dos pátios, ajudando a evitar a perda inesperada de motos.
 
+# Teste de Automação e Azure Boards
+
+## 🔗 Links Importantes
+- **Azure Boards:** [Acessar projeto](https://dev.azure.com/Soft-Code/TrackYard)
+- **Vídeo de execução dos testes:** [Assista aqui](https://youtu.be/SEU_VIDEO)
+
+
 ## Funcionalidades
 
 - Gerenciamento de pátios.
