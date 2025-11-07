@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body th:with="pageTitle='Ler QR Code', content=~{::content}"
+      th:insert="~{fragments/_layout}">
+
+<div th:fragment="content">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h3">Ler QR Code</h1>
+    <div>
+      <button class="btn btn-success me-2" id="btnStart" onclick="startReader()">Iniciar Leitura</button>
+      <button class="btn btn-danger me-2" id="btnStop" onclick="stopReader()">Parar Leitura</button>
+      <button class="btn btn-secondary" onclick="status()">Status</button>
+    </div>
+  </div>
+
+  <div class="card mb-3">
+    <div class="card-body">
+      <strong>Status:</strong> <span id="statusText">-</span>
+    </div>
+  </div>
+
+  <div class="card mb-3">
+    <div class="card-body">
+      <h5 class="card-title">Último QR lido</h5>
+      <pre id="lastData" class="mb-0">Nenhum</pre>
+    </div>
+  </div>
+
+  <div class="card mb-3">
+    <div class="card-body">
+      <h5 class="card-title">Upload / Webcam (se Python estiver remoto)</h5>
+
+      <div class="row">
+        <div class="col-md-6">
+          <p>Use a câmera do navegador para capturar e enviar a imagem para a API Python:</p>
+          <video id="videoPreview" autoplay playsinline style="display:none; width:100%; border-radius:6px;"></video>
+          <canvas id="captureCanvas" style="display:none;"></canvas>
+
+          <div class="mt-2">
+            <button class="btn btn-outline-primary me-1" id="btnOpenCam" onclick="openCamera()">Abrir câmera</button>
+            <button class="btn btn-primary me-1" id="btnTakePhoto" onclick="takePhoto()" disabled>Capturar & Enviar</button>
+            <button class="btn btn-outline-secondary" id="btnCloseCam" onclick="closeCamera()" disabled>Fechar câmera</button>
+          </div>
+        </div>
+
+        <div class="col-md-6">
+          <p>Ou envie um arquivo:</p>
+          <input class="form-control" type="file" id="fileInput" accept="image/*" />
+          <div class="mt-2">
+            <button class="btn btn-outline-success" onclick="uploadImage()">Enviar</button>
+          </div>
+          <div class="mt-3">
+            <strong>Resultado do upload:</strong>
+            <pre id="uploadResult" class="mt-1">-</pre>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-body">
+      <h5 class="card-title">Logs</h5>
+      <pre id="logs" class="mb-0">Pronto.</pre>
+    </div>
+  </div>
+
+  <script>
+    const PY_API_BASE = 'http://localhost:8000'; // ajuste se necessário
+    let lastQr = null;
+    let videoStream = null;
+
+    function log(msg) {
+      const logs = document.getElementById('logs');
+      const time = new Date().toLocaleTimeString();
+      logs.innerText = `[${time}] ${msg}\n` + logs.innerText;
+    }
+
+    async function startReader() {
+      try {
+        const res = await fetch(`${PY_API_BASE}/start`);
+        const json = await res.json();
+        document.getElementById('statusText').innerText = JSON.stringify(json);
+        log('start -> ' + JSON.stringify(json));
+      } catch (e) {
+        alert('Erro ao iniciar leitor: ' + e);
+        log('Erro start: ' + e);
+      }
+    }
+
+    async function stopReader() {
+      try {
+        const res = await fetch(`${PY_API_BASE}/stop`);
+        const json = await res.json();
+        document.getElementById('statusText').innerText = JSON.stringify(json);
+        log('stop -> ' + JSON.stringify(json));
+      } catch (e) {
+        alert('Erro ao parar leitor: ' + e);
+        log('Erro stop: ' + e);
+      }
+    }
+
+    async function status() {
+      try {
+        const res = await fetch(`${PY_API_BASE}/status`);
+        const json = await res.json();
+        document.getElementById('statusText').innerText = JSON.stringify(json);
+        log('status -> ' + JSON.stringify(json));
+      } catch (e) {
+        alert('Erro ao consultar status: ' + e);
+        log('Erro status: ' + e);
+      }
+    }
+
+    function refreshLast() {
+      if (lastQr) {
+        document.getElementById('lastData').innerText = JSON.stringify(lastQr, null, 2);
+      } else {
+        document.getElementById('lastData').innerText = 'Nenhum';
+      }
+    }
+
+    async function uploadImage() {
+      const input = document.getElementById('fileInput');
+      if (!input.files.length) { alert('Selecione uma imagem'); return; }
+      const fd = new FormData();
+      fd.append('file', input.files[0]);
+      try {
+        const res = await fetch(`${PY_API_BASE}/upload_image_and_decode`, { method: 'POST', body: fd });
+        
+        // Adicionando captura de erro 500 (como fizemos no Gerar)
+        if (!res.ok) {
+            alert('Erro ao enviar imagem (API retornou status ' + res.status + ')');
+            log('Erro upload: ' + res.status);
+            return;
+        }
+
+        const json = await res.json();
+        document.getElementById('uploadResult').innerText = JSON.stringify(json, null, 2);
+        log('upload -> ' + JSON.stringify(json));
+        if (json.found) {
+          lastQr = json.data;
+          document.getElementById('lastData').innerText = JSON.stringify(lastQr, null, 2);
+        }
+      } catch (e) {
+        alert('Erro de rede ao enviar imagem: ' + e);
+        log('Erro upload (rede): ' + e);
+      }
+    }
+
+    async function openCamera() {
+      try {
+        videoStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
+        const video = document.getElementById('videoPreview');
+        video.srcObject = videoStream;
+        video.style.display = 'block';
+        document.getElementById('btnTakePhoto').disabled = false;
+        document.getElementById('btnCloseCam').disabled = false;
+        document.getElementById('btnOpenCam').disabled = true;
+        log('Câmera aberta no navegador');
+      } catch (e) {
+        alert('Não foi possível acessar a câmera: ' + e);
+        log('Erro openCamera: ' + e);
+      }
+    }
+
+    function closeCamera() {
+      if (videoStream) {
+        videoStream.getTracks().forEach(t => t.stop());
+        videoStream = null;
+      }
+      const video = document.getElementById('videoPreview');
+      video.style.display = 'none';
+      document.getElementById('btnTakePhoto').disabled = true;
+      document.getElementById('btnCloseCam').disabled = true;
+      document.getElementById('btnOpenCam').disabled = false;
+      log('Câmera fechada');
+    }
+
+    async function takePhoto() {
+      if (!videoStream) return alert('Abra a câmera primeiro');
+      const video = document.getElementById('videoPreview');
+      const canvas = document.getElementById('captureCanvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      canvas.toBlob(async (blob) => {
+        const fd = new FormData();
+        fd.append('file', blob, 'capture.png');
+        try {
+          const res = await fetch(`${PY_API_BASE}/upload_image_and_decode`, { method: 'POST', body: fd });
+
+          // Adicionando captura de erro 500
+          if (!res.ok) {
+              alert('Erro ao enviar captura (API retornou status ' + res.status + ')');
+              log('Erro capture: ' + res.status);
+              return;
+          }
+
+          const json = await res.json();
+          document.getElementById('uploadResult').innerText = JSON.stringify(json, null, 2);
+          log('capture -> ' + JSON.stringify(json));
+          if (json.found) {
+            lastQr = json.data;
+            document.getElementById('lastData').innerText = JSON.stringify(lastQr, null, 2);
+          }
+        } catch (e) {
+          alert('Erro de rede ao enviar captura: ' + e);
+          log('Erro capture/upload (rede): ' + e);
+        }
+      }, 'image/png');
+    }
+
+    window.addEventListener('beforeunload', () => {
+      if (videoStream) {
+        videoStream.getTracks().forEach(t => t.stop());
+      }
+    });
+  </script>
+
+</div> </body>
+</html>

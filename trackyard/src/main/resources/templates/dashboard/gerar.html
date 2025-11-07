@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body th:with="pageTitle='Gerar QR Code', content=~{::content}"
+      th:insert="~{fragments/_layout}">
+
+<div th:fragment="content">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h3">Gerar QR Code</h1>
+  </div>
+
+  <div class="card mb-3">
+    <div class="card-body">
+      <form id="formGerar" onsubmit="return false;">
+        <div class="mb-2">
+          <label class="form-label">idMovimentacao</label>
+          <input class="form-control" type="number" name="idMovimentacao" id="idMovimentacao" />
+        </div>
+        <div class="mb-2">
+          <label class="form-label">idMoto</label>
+          <input class="form-control" type="text" name="idMoto" id="idMoto" />
+        </div>
+        <div class="mb-2">
+          <label class="form-label">idPonto</label>
+          <input class="form-control" type="number" name="idPonto" id="idPonto" />
+        </div>
+        <button class="btn btn-primary" onclick="gerar()">Gerar QR Code</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-body">
+      <h5 class="card-title">QR gerado</h5>
+      <img id="qrImg" src="" alt="QR" style="display:none; max-width:300px;" />
+    </div>
+  </div>
+
+  <script>
+    async function gerar() {
+      console.log("Iniciando geração de QR..."); // Para depurar no console (F12)
+
+      try {
+        const fd = new FormData();
+        const idMov = document.getElementById('idMovimentacao').value || '';
+        const idMot = document.getElementById('idMoto').value || '';
+        const idPon = document.getElementById('idPonto').value || '';
+
+        // 1. Validação dos campos obrigatórios
+        if (!idMot || !idPon) {
+            alert('Os campos "idMoto" e "idPonto" são obrigatórios!');
+            return;
+        }
+
+        fd.append('idMovimentacao', idMov);
+        fd.append('idMoto', idMot);
+        fd.append('idPonto', idPon);
+
+        console.log("Enviando dados para a API Python:", {idMov, idMot, idPon});
+
+        const res = await fetch('http://localhost:8000/gerar_qrcode', {
+          method: 'POST',
+          body: fd
+        });
+
+        console.log("Resposta da API recebida:", res.status);
+
+        if (!res.ok) {
+          alert('Erro ao gerar QR (API retornou status ' + res.status + ')');
+          return;
+        }
+
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const img = document.getElementById('qrImg');
+        img.src = url;
+        img.style.display = 'block';
+
+      } catch (error) {
+        // --- ESTE É O BLOCO MAIS IMPORTANTE ---
+        // Se houver um erro de rede ou CORS, ele será capturado aqui.
+        console.error("Falha grave no fetch:", error);
+        alert("ERRO DE REDE: Não foi possível conectar à API Python. Verifique o console (F12). Erro: " + error.message);
+      }
+    }
+  </script>
+
+</div> </body>
+</html>
