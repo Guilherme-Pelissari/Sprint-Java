@@ -1,2 +1,2 @@
 link azure boards: https://dev.azure.com/Soft-Code/TrackYard
-link video dos testes: 
+link video dos testes: https://www.youtube.com/watch?v=KHlZo6aqrrI
