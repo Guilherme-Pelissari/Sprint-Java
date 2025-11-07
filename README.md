@@ -23,7 +23,7 @@ Clone o projeto para sua máquina local:
 
 ```bash
 git clone https://github.com/Guilherme-Pelissari/Sprint-Java.git
-cd Sprint1Java/trackyard
+cd Sprint-Java/trackyard
 ```
 
 ### 2. Build e Execução
