@@ -6,7 +6,7 @@
 
 ## 🔗 Links Importantes
 - **Azure Boards:** [Acessar projeto](https://dev.azure.com/Soft-Code/TrackYard)
-- **Vídeo de execução dos testes:** [Assista aqui](https://youtu.be/SEU_VIDEO)
+- **Vídeo de execução dos testes:** [Assista aqui](https://www.youtube.com/watch?v=KHlZo6aqrrI)
 
 
 ## Funcionalidades
